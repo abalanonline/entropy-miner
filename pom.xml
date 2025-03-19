@@ -38,6 +38,11 @@
 
   <dependencies>
     <dependency>
+      <groupId>com.diozero</groupId>
+      <artifactId>diozero-core</artifactId>
+      <version>1.4.1</version>
+    </dependency>
+    <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
       <version>5.11.4</version>
