@@ -33,14 +33,14 @@
     <maven.compiler.target>${java.version}</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <exec.mainClass>ab.Main</exec.mainClass>
+    <exec.mainClass>ab.em1.Main</exec.mainClass>
   </properties>
 
   <dependencies>
     <dependency>
-      <groupId>com.diozero</groupId>
-      <artifactId>diozero-core</artifactId>
-      <version>1.4.1</version>
+      <groupId>ab</groupId>
+      <artifactId>gpio</artifactId>
+      <version>1.0</version>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
