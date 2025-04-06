@@ -21,22 +21,27 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.TargetDataLine;
+import java.util.Arrays;
+import java.util.Queue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class Audio implements AutoCloseable {
 
   public static final AudioFormat AUDIO_FORMAT = new AudioFormat(44100, 8, 1, false, false);
-  public static final int BLOCK_SIZE = 4; // MD5, SHA-1, SHA-256 block size = 512 bit
-  // BLOCK 1=1378Hz, 4=344, 16=86, 64=22Hz=46ms
-  public byte[] audioBytes = new byte[BLOCK_SIZE * (512 / 8)];
+  public static final int BLOCK_SIZE = 512 / 8; // MD5, SHA-1, SHA-256 block size = 512 bit
+  public static final int QUEUE_MAX = (int) (AUDIO_FORMAT.getFrameRate() * AUDIO_FORMAT.getFrameSize() / BLOCK_SIZE); // 1 sec max
+  public final BlockingQueue<byte[]> queue = new LinkedBlockingQueue<>();
   private TargetDataLine audioLine;
   private Thread thread;
   private boolean open;
 
   protected void run() {
-    final int length = this.audioBytes.length;
+    final int length = BLOCK_SIZE;
     byte[] audioBytes = new byte[length];
     while (open && audioLine.read(audioBytes, 0, length) == length) {
-      System.arraycopy(audioBytes, 0, this.audioBytes, 0, length);
+      while (queue.size() >= QUEUE_MAX) queue.poll();
+      queue.add(Arrays.copyOf(audioBytes, length));
     }
   }
 

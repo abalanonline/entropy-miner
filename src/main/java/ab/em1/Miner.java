@@ -21,7 +21,9 @@ import ab.gpio.Max7219;
 import ab.gpio.Pwm;
 import ab.gpio.RotaryEncoder;
 
+import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.Queue;
 
 public class Miner implements AutoCloseable, Runnable {
 
@@ -77,19 +79,33 @@ public class Miner implements AutoCloseable, Runnable {
     }
   }
 
-  public static final double AMMETER_SCALE_CORRECTION = 30 / 23.0;
+  public static final double AMMETER_SCALE_CORRECTION = 30 / 23.0; // tested, it never reach 23 mA, no clipping error
   @Override
   public void run() {
     final int dutyCycleT = 64;
     int[] histogram = new int[32];
+    Queue<byte[]> queue = new ArrayDeque<>();
     while (open) {
+      try {
+        do {
+          queue.add(audio.queue.take()); // take at least one
+        } while (!audio.queue.isEmpty());
+      } catch (InterruptedException e) {
+        break;
+      }
+      int byteSize = queue.element().length;
+      int size = queue.size();
+      byte[] audioBytes = new byte[byteSize * size];
+      for (int i = 0; i < size; i++) System.arraycopy(queue.remove(), 0, audioBytes, i * byteSize, byteSize);
       Arrays.fill(histogram, 0);
-      byte[] audioBytes = audio.audioBytes;
       for (int i = audioBytes.length - 1; i >= 0; i--) histogram[audioBytes[i] >> 3 & 0x1F]++;
+      int[] mArray = Arrays.copyOf(histogram, 32);
+      Arrays.sort(mArray);
+      int median = Math.max(1, mArray[16]);
       double ent = this.ent.apply(audioBytes);
       vuPwm.setDutyCycle((int) (ent * dutyCycleT * AMMETER_SCALE_CORRECTION), dutyCycleT);
       for (int x = 0; x < 32; x++) {
-        int v = (histogram[x] + 7) / 8;
+        int v = (histogram[x] + median - 1) / median;
         for (int y = 0; y < 7; y++) display.print(x, y, y < v ? "1" : "0", 0);
       }
       update();
