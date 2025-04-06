@@ -25,12 +25,28 @@ import java.util.function.Function;
  * Random Sequence Tester program
  * https://github.com/Fourmilab/ent_random_sequence_tester/tree/master
  */
-public class EntRandomTest implements Function<byte[], Double> {
+public class EntRandom implements Function<byte[], Double> {
 
   private final Runtime runtime = Runtime.getRuntime();
+  public static final double LOG_2_OF_10 = 1 / Math.log10(2);
 
-  public EntRandomTest() {
-    exec(new byte[8]); // test run
+  public EntRandom() {
+    apply(new byte[8]); // test run
+  }
+
+  protected double internal(byte[] bytes) {
+    int totalc = bytes.length;
+    int[] ccount = new int[256];
+    for (byte b : bytes) ccount[b & 0xFF]++;
+    double ent = 0.0;
+    for (int i = 0; i < 256; i++) {
+      if (ccount[i] > 0) {
+        final double prob = (double) ccount[i] / (double) totalc;
+        // copy-paste from randtest.c line 167
+        ent += prob * Math.log10(1 / prob) * LOG_2_OF_10;
+      }
+    }
+    return ent / 8;
   }
 
   protected double exec(byte[] bytes) {
@@ -45,19 +61,23 @@ public class EntRandomTest implements Function<byte[], Double> {
       int fileBytes = Integer.parseInt(v[1]);
       if (fileBytes != bytes.length) throw new IllegalStateException("ent File-bytes = " + fileBytes);
       double entropy = Double.parseDouble(v[2]);
-      double chiSquare = Double.parseDouble(v[3]);
-      double mean = Double.parseDouble(v[4]);
-      double monteCarloPi = Double.parseDouble(v[5]);
-      double serialCorrelation = Double.parseDouble(v[6]);
+      //double chiSquare = Double.parseDouble(v[3]);
+      //double mean = Double.parseDouble(v[4]);
+      //double monteCarloPi = Double.parseDouble(v[5]);
+      //double serialCorrelation = Double.parseDouble(v[6]);
       return entropy / 8; // ent output is 0.000-7.999
     } catch (IOException | InterruptedException e) {
       throw new IllegalStateException(e);
     }
   }
 
+  /**
+   * @return the entropy of byte stream 0.0-1.0 min-max
+   */
   @Override
   public Double apply(byte[] bytes) {
-    return exec(bytes);
+    return internal(bytes);
+    //return exec(bytes);
   }
 
 }

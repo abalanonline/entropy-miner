@@ -37,7 +37,7 @@ public class Miner implements AutoCloseable, Runnable {
   private int offLc;
   private int offRc;
   private int offTc;
-  private final EntRandomTest ent;
+  private final EntRandom ent;
 
   public Miner(RotaryEncoder knob, Pwm fan, Max7219 display, Pwm vu, Audio audio) {
     this.knob = knob;
@@ -45,7 +45,7 @@ public class Miner implements AutoCloseable, Runnable {
     this.display = display;
     this.vuPwm = vu;
     this.audio = audio;
-    this.ent = new EntRandomTest();
+    this.ent = new EntRandom();
   }
 
   synchronized protected void update() {
