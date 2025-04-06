@@ -17,7 +17,7 @@
 
 package ab.em1;
 
-import ab.em1.Miner;
+import ab.gpio.GpioSystem;
 import ab.gpio.Max7219;
 import ab.gpio.Pwm;
 import ab.gpio.RotaryEncoder;
@@ -29,25 +29,36 @@ import com.diozero.devices.PwmLed;
 
 public class Main {
   public static void main(String[] args) throws InterruptedException {
+    Dz testVu = new Dz(1, 92).open();
+    long nanoTime = System.nanoTime() + 10_000_000_000L;
+    while (System.nanoTime() < nanoTime) {
+      testVu.set(true);
+      Thread.sleep(25);
+      testVu.set(false);
+      Thread.sleep(25);
+    }
+    testVu.close();
+    GpioSystem.devicetreeCompatible().forEach(System.out::println);
     // power up the rotary encoder
     Dz rotaryPower = new Dz(1, 95).open();
     rotaryPower.set(true);
     rotaryPower.close();
 
     try (BusyRunner busyRunner = new BusyRunner().open(); // not sure who should open the runner
-         Pwm fan = new Pwm(new Dz(1, 91), busyRunner);
-         Pwm vu = new Pwm(new Dz(1, 84), busyRunner);
-         Dz din = new Dz(1, 87);
-         Dz cs = new Dz(1, 88);
-         Dz clk = new Dz(1, 90);
-         Max7219 display = new Max7219(din, cs, clk);
-         Dz oa = new Dz(1, 83, true);
-         Dz ob = new Dz(1, 82, true);
-         Dz sw = new Dz(1, 81, true);
-         RotaryEncoder knob = new RotaryEncoder(oa, ob, sw, busyRunner);
-         Miner miner = new Miner(knob, fan, display, vu).open();
+        Pwm fan = new Pwm(new Dz(1, 91), busyRunner);
+        Pwm vu = new Pwm(new Dz(1, 92), busyRunner);
+        Dz din = new Dz(1, 87);
+        Dz cs = new Dz(1, 88);
+        Dz clk = new Dz(1, 90);
+        Max7219 display = new Max7219(din, cs, clk);
+        Dz oa = new Dz(1, 83, true);
+        Dz ob = new Dz(1, 82, true);
+        Dz sw = new Dz(1, 81, true);
+        RotaryEncoder knob = new RotaryEncoder(oa, ob, sw, busyRunner);
+        Audio audio = new Audio();
+        Miner miner = new Miner(knob, fan, display, vu, audio).open();
     ) {
-      while (miner.open) Thread.sleep(100);
+      miner.run();
     }
     System.exit(0);
 

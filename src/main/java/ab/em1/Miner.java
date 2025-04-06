@@ -21,41 +21,44 @@ import ab.gpio.Max7219;
 import ab.gpio.Pwm;
 import ab.gpio.RotaryEncoder;
 
-public class Miner implements AutoCloseable {
+public class Miner implements AutoCloseable, Runnable {
 
   public static final int DUTY_CYCLE_T = 32;
   private final RotaryEncoder knob;
   private final Pwm fan;
   private final Max7219 display;
   private final Pwm vuPwm;
+  private final Audio audio;
   public boolean open;
-  private int vu;
+  private int speed;
   private int offLc;
   private int offRc;
   private int offTc;
 
-  public Miner(RotaryEncoder knob, Pwm fan, Max7219 display, Pwm vu) {
+  public Miner(RotaryEncoder knob, Pwm fan, Max7219 display, Pwm vu, Audio audio) {
     this.knob = knob;
     this.fan = fan;
     this.display = display;
     this.vuPwm = vu;
+    this.audio = audio;
   }
 
   protected void update() {
-    int vu = Math.min(Math.max(0, this.vu), DUTY_CYCLE_T);
-    fan.setDutyCycle(vu, DUTY_CYCLE_T);
-    vuPwm.setDutyCycle(vu, DUTY_CYCLE_T);
+    int speed = Math.min(Math.max(0, this.speed), DUTY_CYCLE_T);
+    int brightness;
+    fan.setDutyCycle(speed, DUTY_CYCLE_T);
     StringBuilder s = new StringBuilder();
-    for (int i = 0; i < DUTY_CYCLE_T; i++) s.append(i < vu ? '1' : '0');
+    for (int i = 0; i < DUTY_CYCLE_T; i++) s.append(i < speed ? '1' : '0');
     display.print(0, 7, s.toString(), 0);
+//    display.setBrightness(brightness);
     display.update();
-    this.vu = vu;
+    this.speed = speed;
   }
 
   protected void keyListener(String s) {
     switch (s) {
-      case "Left": vu--; update(); break;
-      case "Right": vu++; update(); break;
+      case "Left": speed--; update(); break;
+      case "Right": speed++; update(); break;
       case "-": offLc++; break;
       case "+": offRc++; break;
       case "1": offLc = 0; offRc = 0; break;
@@ -67,9 +70,24 @@ public class Miner implements AutoCloseable {
     }
   }
 
+  public static final double AMMETER_SCALE_CORRECTION = 30 / 23.0;
+  @Override
+  public void run() {
+    final int dutyCycleT = 64;
+    while (open) {
+      vuPwm.setDutyCycle((int) (audio.ent() * dutyCycleT * AMMETER_SCALE_CORRECTION), dutyCycleT);
+      try {
+        Thread.sleep(50);
+      } catch (InterruptedException e) {
+        break;
+      }
+    }
+  }
+
   public Miner open() {
     if (open) throw new IllegalStateException("not closed");
     open = true;
+    audio.open();
     knob.open();
     fan.open();
     display.open();
@@ -88,6 +106,7 @@ public class Miner implements AutoCloseable {
     display.close();
     vuPwm.setDutyCycle(0, 1);
     vuPwm.close();
+    audio.close();
     open = false;
   }
 
