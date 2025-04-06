@@ -23,21 +23,9 @@ import ab.gpio.Pwm;
 import ab.gpio.RotaryEncoder;
 import ab.gpio.driver.BusyRunner;
 import ab.gpio.driver.Dz;
-import com.diozero.api.I2CDevice;
-import com.diozero.api.I2CDeviceInterface;
-import com.diozero.devices.PwmLed;
 
 public class Main {
   public static void main(String[] args) throws InterruptedException {
-    Dz testVu = new Dz(1, 92).open();
-    long nanoTime = System.nanoTime() + 10_000_000_000L;
-    while (System.nanoTime() < nanoTime) {
-      testVu.set(true);
-      Thread.sleep(25);
-      testVu.set(false);
-      Thread.sleep(25);
-    }
-    testVu.close();
     GpioSystem.devicetreeCompatible().forEach(System.out::println);
     // power up the rotary encoder
     Dz rotaryPower = new Dz(1, 95).open();
@@ -60,20 +48,6 @@ public class Main {
     ) {
       miner.run();
     }
-    System.exit(0);
 
-    PwmLed pwmLed = new PwmLed(84);
-    int i2cAddress = Integer.parseInt(args[0]);
-    int i2cBus = Integer.parseInt(args[1]);
-    I2CDeviceInterface device = I2CDevice.builder(i2cAddress).setController(i2cBus).build();
-    for (int i = 0; i < 1000; i++) {
-      device.writeByte((byte) 0);
-      int v = device.readByte() & 0xFF;
-      System.out.print(String.format("\r%8s", Integer.toBinaryString(v)));
-      pwmLed.setValue(v / 255F);
-      Thread.sleep(100);
-    }
-    //LcdSampleApp16x2PCF8574.main(args);
-    pwmLed.pulse();
   }
 }

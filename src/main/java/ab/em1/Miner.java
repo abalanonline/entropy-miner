@@ -21,6 +21,8 @@ import ab.gpio.Max7219;
 import ab.gpio.Pwm;
 import ab.gpio.RotaryEncoder;
 
+import java.util.Arrays;
+
 public class Miner implements AutoCloseable, Runnable {
 
   public static final int DUTY_CYCLE_T = 32;
@@ -31,9 +33,11 @@ public class Miner implements AutoCloseable, Runnable {
   private final Audio audio;
   public boolean open;
   private int speed;
+  private int brightness;
   private int offLc;
   private int offRc;
   private int offTc;
+  private final EntRandomTest ent;
 
   public Miner(RotaryEncoder knob, Pwm fan, Max7219 display, Pwm vu, Audio audio) {
     this.knob = knob;
@@ -41,31 +45,34 @@ public class Miner implements AutoCloseable, Runnable {
     this.display = display;
     this.vuPwm = vu;
     this.audio = audio;
+    this.ent = new EntRandomTest();
   }
 
-  protected void update() {
+  synchronized protected void update() {
+    if (!open) return;
     int speed = Math.min(Math.max(0, this.speed), DUTY_CYCLE_T);
-    int brightness;
+    int brightness = Math.min(Math.max(0, this.brightness), 15);
     fan.setDutyCycle(speed, DUTY_CYCLE_T);
     StringBuilder s = new StringBuilder();
     for (int i = 0; i < DUTY_CYCLE_T; i++) s.append(i < speed ? '1' : '0');
     display.print(0, 7, s.toString(), 0);
-//    display.setBrightness(brightness);
+    display.setBrightness(brightness);
     display.update();
     this.speed = speed;
+    this.brightness = brightness;
   }
 
   protected void keyListener(String s) {
     switch (s) {
-      case "Left": speed--; update(); break;
-      case "Right": speed++; update(); break;
-      case "-": offLc++; break;
-      case "+": offRc++; break;
+      case "Left": speed--; break;
+      case "Right": speed++; break;
+      case "-": brightness--; offLc++; break;
+      case "+": brightness++; offRc++; break;
       case "1": offLc = 0; offRc = 0; break;
       case "0":
         if (offRc > 0) offTc = 0;
         if (offLc > 0 && offRc == 0) offTc++;
-        if (offTc >= 3) close();
+        if (offTc >= 1) close(); // FIXME 3
         break;
     }
   }
@@ -74,8 +81,18 @@ public class Miner implements AutoCloseable, Runnable {
   @Override
   public void run() {
     final int dutyCycleT = 64;
+    int[] histogram = new int[32];
     while (open) {
-      vuPwm.setDutyCycle((int) (audio.ent() * dutyCycleT * AMMETER_SCALE_CORRECTION), dutyCycleT);
+      Arrays.fill(histogram, 0);
+      byte[] audioBytes = audio.audioBytes;
+      for (int i = audioBytes.length - 1; i >= 0; i--) histogram[audioBytes[i] >> 3 & 0x1F]++;
+      double ent = this.ent.apply(audioBytes);
+      vuPwm.setDutyCycle((int) (ent * dutyCycleT * AMMETER_SCALE_CORRECTION), dutyCycleT);
+      for (int x = 0; x < 32; x++) {
+        int v = (histogram[x] + 7) / 8;
+        for (int y = 0; y < 7; y++) display.print(x, y, y < v ? "1" : "0", 0);
+      }
+      update();
       try {
         Thread.sleep(50);
       } catch (InterruptedException e) {
@@ -98,7 +115,7 @@ public class Miner implements AutoCloseable, Runnable {
   }
 
   @Override
-  public void close() {
+  synchronized public void close() {
     knob.setKeyListener(null);
     knob.close();
     fan.setDutyCycle(0, 1);
