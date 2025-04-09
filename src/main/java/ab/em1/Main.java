@@ -25,23 +25,29 @@ import ab.gpio.driver.BusyRunner;
 import ab.gpio.driver.Dz;
 
 public class Main {
-  public static void main(String[] args) throws InterruptedException {
+  public static void main(String[] args) {
+    int[] cnf = {1, 91, 1, 92, 1, 87, 1, 88, 1, 90, 1, 81, 1, 82, 1, 83};
+    Dz fanPin = new Dz(cnf[0], cnf[1]);
+    Dz vuPin = new Dz(cnf[2], cnf[3]);
+    Dz oa = new Dz(cnf[4], cnf[5], true);
+    Dz ob = new Dz(cnf[6], cnf[7], true);
+    Dz sw = new Dz(cnf[8], cnf[9], true);
+    Dz clk = new Dz(cnf[10], cnf[11]);
+    Dz cs = new Dz(cnf[12], cnf[13]);
+    Dz din = new Dz(cnf[14], cnf[15]);
+    // the remaining pins are for power source, enable them
+    for (int i = 16; i < cnf.length; i += 2) {
+      Dz power = new Dz(cnf[i], cnf[i + 1]).open();
+      power.set(true);
+      power.close();
+    }
+
     GpioSystem.devicetreeCompatible().forEach(System.out::println);
-    // power up the rotary encoder
-    Dz rotaryPower = new Dz(1, 95).open();
-    rotaryPower.set(true);
-    rotaryPower.close();
 
     try (BusyRunner busyRunner = new BusyRunner().open(); // not sure who should open the runner
-        Pwm fan = new Pwm(new Dz(1, 91), busyRunner);
-        Pwm vu = new Pwm(new Dz(1, 92), busyRunner);
-        Dz din = new Dz(1, 87);
-        Dz cs = new Dz(1, 88);
-        Dz clk = new Dz(1, 90);
+        Pwm fan = new Pwm(fanPin, busyRunner);
+        Pwm vu = new Pwm(vuPin, busyRunner);
         Max7219 display = new Max7219(din, cs, clk);
-        Dz oa = new Dz(1, 83, true);
-        Dz ob = new Dz(1, 82, true);
-        Dz sw = new Dz(1, 81, true);
         RotaryEncoder knob = new RotaryEncoder(oa, ob, sw, busyRunner);
         Audio audio = new Audio();
         Miner miner = new Miner(knob, fan, display, vu, audio).open();
