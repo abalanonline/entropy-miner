@@ -19,30 +19,41 @@ package ab.em1;
 
 import ab.gpio.GpioSystem;
 import ab.gpio.Max7219;
+import ab.gpio.Pin;
 import ab.gpio.Pwm;
 import ab.gpio.RotaryEncoder;
 import ab.gpio.driver.BusyRunner;
-import ab.gpio.driver.Dz;
+
+import java.util.Arrays;
 
 public class Main {
+
+  public static final int[][] DEVICE_PINS = new int[][]{
+      {1, 91, 1, 92, 1, 87, 1, 88, 1, 90, 1, 81, 1, 82, 1, 83}, // libretech,aml-s905x-cc, amlogic,s905x, amlogic,meson-gxl
+      {0, 14, 0, 15, 0, 10, 0, 9, 0, 11, 0, 16, 0, 20, 0, 21}, // raspberrypi,4-model-b, brcm,bcm2711
+      {0, 48, 0, 49, 0, 16, 0, 17, 0, 18, 0, 51, 0, 77, 0, 78}}; // meh
+  // nvidia,p3542-0000+p3448-0003, nvidia,jetson-nano-2gb, nvidia,jetson-nano, nvidia,tegra210
+  // TODO: 2025-04-09 let Nvidia hardware fail on GPIO_GET_LINEEVENT_IOCTL and not try to fix it
+  public static final String[] DEVICE_NAMES = new String[]{
+      "libretech,aml-s905x-cc", "raspberrypi,4-model-b", "nvidia,jetson-nano"};
+
   public static void main(String[] args) {
-    int[] cnf = {1, 91, 1, 92, 1, 87, 1, 88, 1, 90, 1, 81, 1, 82, 1, 83};
-    Dz fanPin = new Dz(cnf[0], cnf[1]);
-    Dz vuPin = new Dz(cnf[2], cnf[3]);
-    Dz oa = new Dz(cnf[4], cnf[5], true);
-    Dz ob = new Dz(cnf[6], cnf[7], true);
-    Dz sw = new Dz(cnf[8], cnf[9], true);
-    Dz clk = new Dz(cnf[10], cnf[11]);
-    Dz cs = new Dz(cnf[12], cnf[13]);
-    Dz din = new Dz(cnf[14], cnf[15]);
+    int[] conf = GpioSystem.getByDevice(Arrays.asList(DEVICE_NAMES), Arrays.asList(DEVICE_PINS), null);
+
+    Pin fanPin = new Pin(conf[0], conf[1]);
+    Pin vuPin = new Pin(conf[2], conf[3]);
+    Pin oa = new Pin(conf[4], conf[5], true);
+    Pin ob = new Pin(conf[6], conf[7], true);
+    Pin sw = new Pin(conf[8], conf[9], true);
+    Pin clk = new Pin(conf[10], conf[11]);
+    Pin cs = new Pin(conf[12], conf[13]);
+    Pin din = new Pin(conf[14], conf[15]);
     // the remaining pins are for power source, enable them
-    for (int i = 16; i < cnf.length; i += 2) {
-      Dz power = new Dz(cnf[i], cnf[i + 1]).open();
+    for (int i = 16; i < conf.length; i += 2) {
+      Pin power = new Pin(conf[i], conf[i + 1]).open();
       power.set(true);
       power.close();
     }
-
-    GpioSystem.devicetreeCompatible().forEach(System.out::println);
 
     try (BusyRunner busyRunner = new BusyRunner().open(); // not sure who should open the runner
         Pwm fan = new Pwm(fanPin, busyRunner);

@@ -63,10 +63,12 @@ public class Audio implements AutoCloseable {
   @Override
   public void close() {
     open = false;
+    Thread thread = this.thread;
     try {
-      thread.join();
+      if (thread != null) thread.join();
     } catch (InterruptedException ignore) {
     }
+    this.thread = null;
     TargetDataLine audioLine = this.audioLine;
     if (audioLine != null) audioLine.close();
     this.audioLine =  null;

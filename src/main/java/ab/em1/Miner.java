@@ -24,6 +24,7 @@ import ab.gpio.RotaryEncoder;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Queue;
+import java.util.UUID;
 
 public class Miner implements AutoCloseable, Runnable {
 
@@ -40,6 +41,10 @@ public class Miner implements AutoCloseable, Runnable {
   private int offRc;
   private int offTc;
   private final EntRandom ent;
+  private int randomp;
+  private final int[] randoms = new int[]{-1, -1, -1, 15,
+      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      1, -1, 1, -1, 2, -1, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1};
 
   public Miner(RotaryEncoder knob, Pwm fan, Max7219 display, Pwm vu, Audio audio) {
     this.knob = knob;
@@ -79,13 +84,59 @@ public class Miner implements AutoCloseable, Runnable {
     }
   }
 
+  protected void printHistogram(byte[] audioBytes) {
+    int[] histogram = new int[32];
+    for (int i = audioBytes.length - 1; i >= 0; i--) histogram[audioBytes[i] >> 3 & 0x1F]++;
+    int[] mArray = Arrays.copyOf(histogram, 32);
+    Arrays.sort(mArray);
+    int median = Math.max(1, mArray[16]);
+    for (int x = 0; x < 32; x++) {
+      int v = (histogram[x] + median - 1) / median;
+      for (int y = 0; y < 7; y++) display.print(x, y, y < v ? "1" : "0", 0);
+    }
+  }
+
+  private static final byte[] HEX_FONT = new byte[]{
+      0b11111, 0b10001, 0b11111, 0b00000, 0b11111, 0b00000, 0b11101, 0b10101, 0b10111, 0b10101, 0b10101, 0b11111,
+      0b00111, 0b00100, 0b11111, 0b10111, 0b10101, 0b11101, 0b11111, 0b10101, 0b11101, 0b00001, 0b00001, 0b11111,
+      0b11111, 0b10101, 0b11111, 0b10111, 0b10101, 0b11111, 0b11111, 0b00101, 0b11111, 0b11111, 0b10100, 0b11100,
+      0b11111, 0b10001, 0b10001, 0b11100, 0b10100, 0b11111, 0b11111, 0b10101, 0b10101, 0b11111, 0b00101, 0b00101};
+  protected void printRandom() {
+    boolean[][] b = new boolean[7][32];
+    int n = randoms.length;
+    for (int x = -4, j = randomp, cv = 0, nv = 0; x < 32; x++, j++) {
+      if (nv > 0) {
+        randoms[j % n] = -1;
+      } else {
+        cv = randoms[j % n];
+        if (cv >= 0) nv = 4;
+      }
+      if (nv > 0) nv--;
+      if (nv > 0 && x >= 0) {
+        byte c = HEX_FONT[cv * 3 + 3 - nv];
+        for (int y = 0; y < 5; y++) {
+          b[y + 1][x] = (c & 1) > 0;
+          c >>>= 1;
+        }
+      }
+    }
+    StringBuilder s = new StringBuilder();
+    for (int y = 0; y < 7; y++) {
+      for (int x = 0; x < 32; x++) {
+        s.append(b[y][x] ? '1' : '0');
+      }
+      display.print(0, y, s.toString(), 0);
+      s.setLength(0);
+    }
+  }
+
   public static final double AMMETER_SCALE_CORRECTION = 30 / 23.0; // tested, it never reach 23 mA, no clipping error
   @Override
   public void run() {
     final int dutyCycleT = 64;
-    int[] histogram = new int[32];
     Queue<byte[]> queue = new ArrayDeque<>();
     while (open) {
+      // prepare a block of bytes
       try {
         do {
           queue.add(audio.queue.take()); // take at least one
@@ -96,18 +147,14 @@ public class Miner implements AutoCloseable, Runnable {
       int byteSize = queue.element().length;
       int size = queue.size();
       byte[] audioBytes = new byte[byteSize * size];
+      // display entropy
       for (int i = 0; i < size; i++) System.arraycopy(queue.remove(), 0, audioBytes, i * byteSize, byteSize);
-      Arrays.fill(histogram, 0);
-      for (int i = audioBytes.length - 1; i >= 0; i--) histogram[audioBytes[i] >> 3 & 0x1F]++;
-      int[] mArray = Arrays.copyOf(histogram, 32);
-      Arrays.sort(mArray);
-      int median = Math.max(1, mArray[16]);
       double ent = this.ent.apply(audioBytes);
       vuPwm.setDutyCycle((int) (ent * dutyCycleT * AMMETER_SCALE_CORRECTION), dutyCycleT);
-      for (int x = 0; x < 32; x++) {
-        int v = (histogram[x] + median - 1) / median;
-        for (int y = 0; y < 7; y++) display.print(x, y, y < v ? "1" : "0", 0);
-      }
+      randoms[randomp] = ent > 0.5 ? (int) (UUID.nameUUIDFromBytes(audioBytes).getLeastSignificantBits()) & 0x0F : -1;
+      randomp = (randomp + 1) % randoms.length;
+      // print histogram/number
+      if (true) printRandom(); else printHistogram(audioBytes);
       update();
       try {
         Thread.sleep(50);
