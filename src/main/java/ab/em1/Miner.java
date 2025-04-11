@@ -41,6 +41,7 @@ public class Miner implements AutoCloseable, Runnable {
   private int offRc;
   private int offTc;
   private final EntRandom ent;
+  private boolean histogram;
   private int randomp;
   private final int[] randoms = new int[]{-1, -1, -1, 15,
       -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
@@ -53,6 +54,7 @@ public class Miner implements AutoCloseable, Runnable {
     this.vuPwm = vu;
     this.audio = audio;
     this.ent = new EntRandom();
+    Arrays.fill(randoms, -1);
   }
 
   synchronized protected void update() {
@@ -79,7 +81,8 @@ public class Miner implements AutoCloseable, Runnable {
       case "0":
         if (offRc > 0) offTc = 0;
         if (offLc > 0 && offRc == 0) offTc++;
-        if (offTc >= 1) close(); // FIXME 3
+        if (offLc == 0 && offRc == 0) histogram = !histogram;
+        if (offTc >= 3) close();
         break;
     }
   }
@@ -134,7 +137,9 @@ public class Miner implements AutoCloseable, Runnable {
   @Override
   public void run() {
     final int dutyCycleT = 64;
+    final long nanoSleep = 100_000_000;
     Queue<byte[]> queue = new ArrayDeque<>();
+    long nanoTime = System.nanoTime();
     while (open) {
       // prepare a block of bytes
       try {
@@ -156,11 +161,16 @@ public class Miner implements AutoCloseable, Runnable {
       // print histogram/number
       if (true) printRandom(); else printHistogram(audioBytes);
       update();
-      try {
-        Thread.sleep(50);
-      } catch (InterruptedException e) {
-        break;
+      long t = System.nanoTime();
+      if (nanoTime < t) nanoTime = t; // late
+      if (nanoTime > t) {
+        try {
+          Thread.sleep((nanoTime - t) / 1_000_000);
+        } catch (InterruptedException e) {
+          break;
+        }
       }
+      nanoTime += nanoSleep;
     }
   }
 

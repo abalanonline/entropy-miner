@@ -16,3 +16,12 @@ sudo apt install openjdk-17-jdk
 ### remove symlink
 sudo rm /dev/gpiochip4
 
+### autostart
+/etc/rc.local
+```
+#!/bin/sh -e
+
+cd /home/user
+/usr/bin/java -jar entropy-miner-1.0-jar-with-dependencies.jar
+```
+sudo chmod a+x /etc/rc.local
