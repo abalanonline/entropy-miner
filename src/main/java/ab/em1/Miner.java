@@ -157,9 +157,10 @@ public class Miner implements AutoCloseable, Runnable {
       double ent = this.ent.apply(audioBytes);
       vuPwm.setDutyCycle((int) (ent * dutyCycleT * AMMETER_SCALE_CORRECTION), dutyCycleT);
       randoms[randomp] = ent > 0.5 ? (int) (UUID.nameUUIDFromBytes(audioBytes).getLeastSignificantBits()) & 0x0F : -1;
+      //if (randoms[randomp] >= 0) System.out.println(randoms[randomp]);
       randomp = (randomp + 1) % randoms.length;
       // print histogram/number
-      if (true) printRandom(); else printHistogram(audioBytes);
+      if (histogram) printHistogram(audioBytes); else printRandom();
       update();
       long t = System.nanoTime();
       if (nanoTime < t) nanoTime = t; // late
