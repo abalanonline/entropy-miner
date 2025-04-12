@@ -38,11 +38,18 @@ ls -l /dev/gpiochip*
 sudo rm /dev/gpiochip4
 ```
 
+### adjust the volume
+```
+alsamixer
+```
+
 ### autostart
 /etc/rc.local
 ```
 #!/bin/sh -e
 
+gpioset 0 14=0
+gpioset 0 15=0
 cd /home/user
 /usr/bin/java -jar entropy-miner-1.0-jar-with-dependencies.jar
 ```
