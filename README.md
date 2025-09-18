@@ -1,6 +1,10 @@
 # entropy-miner
 open-source hardware random number generator
 
+[video](https://youtu.be/QL051UbuOBY)
+
+![entropy miner](https://img.youtube.com/vi/QL051UbuOBY/mqdefault.jpg)
+
 ### create user
 ```
 adduser user
